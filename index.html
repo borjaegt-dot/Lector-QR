@@ -4,19 +4,49 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Lector QR Simple</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    video { width:100%; max-width:400px; border:1px solid #ccc; border-radius:8px; }
+    input { margin: 10px 0; }
+    #result-box {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      display: inline-block;
+      background: #f9f9f9;
+    }
+    #copyBtn {
+      margin-top: 10px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    #copyBtn:active { background: #0056b3; }
+  </style>
 </head>
 <body>
   <h1>Lector de QR</h1>
-  <video id="preview" style="width:100%;max-width:400px;" playsinline></video>
+  <video id="preview" playsinline></video>
   <input type="file" id="fileInput" accept="image/*" />
-  <p id="result">Resultado: <span>-</span></p>
+  
+  <div id="result-box" style="display:none;">
+    <p>Texto extraído:</p>
+    <p id="result" style="font-weight:bold; word-break:break-all;"></p>
+    <button id="copyBtn">📋 Copiar</button>
+  </div>
 
   <!-- Librería de QR -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script>
     const video = document.getElementById('preview');
     const fileInput = document.getElementById('fileInput');
-    const result = document.querySelector('#result span');
+    const resultBox = document.getElementById('result-box');
+    const result = document.getElementById('result');
+    const copyBtn = document.getElementById('copyBtn');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
@@ -33,6 +63,21 @@
       }
     }
 
+    function extractValue(text) {
+      const start = text.indexOf("=") + 1;
+      const end = text.indexOf("&");
+      if (start > 0 && end > start) {
+        return text.substring(start, end);
+      }
+      return text; // si no se encuentra, muestra todo
+    }
+
+    function showResult(text) {
+      const extracted = extractValue(text);
+      result.textContent = extracted;
+      resultBox.style.display = "block";
+    }
+
     function scanLoop() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width = video.videoWidth;
@@ -41,7 +86,7 @@
         const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(img.data, img.width, img.height);
         if (code) {
-          result.textContent = code.data;
+          showResult(code.data);
         }
       }
       rafId = requestAnimationFrame(scanLoop);
@@ -57,9 +102,21 @@
         ctx.drawImage(img, 0, 0);
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(data.data, data.width, data.height);
-        result.textContent = code ? code.data : "No se detectó QR";
+        if (code) {
+          showResult(code.data);
+        } else {
+          result.textContent = "No se detectó QR";
+          resultBox.style.display = "block";
+        }
       };
       img.src = URL.createObjectURL(file);
+    });
+
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(result.textContent).then(() => {
+        copyBtn.textContent = "✅ Copiado!";
+        setTimeout(() => copyBtn.textContent = "📋 Copiar", 2000);
+      });
     });
 
     startCamera();
