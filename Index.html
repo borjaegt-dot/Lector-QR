@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lector QR Simple</title>
+</head>
+<body>
+  <h1>Lector de QR</h1>
+  <video id="preview" style="width:100%;max-width:400px;" playsinline></video>
+  <input type="file" id="fileInput" accept="image/*" />
+  <p id="result">Resultado: <span>-</span></p>
+
+  <!-- Librería de QR -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script>
+    const video = document.getElementById('preview');
+    const fileInput = document.getElementById('fileInput');
+    const result = document.querySelector('#result span');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    let stream, rafId;
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
+        await video.play();
+        scanLoop();
+      } catch (e) {
+        alert("No se pudo acceder a la cámara: " + e.message);
+      }
+    }
+
+    function scanLoop() {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(img.data, img.width, img.height);
+        if (code) {
+          result.textContent = code.data;
+        }
+      }
+      rafId = requestAnimationFrame(scanLoop);
+    }
+
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(data.data, data.width, data.height);
+        result.textContent = code ? code.data : "No se detectó QR";
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    startCamera();
+  </script>
+</body>
+</html>
